@@ -22,7 +22,7 @@ publisher = pubsub_v1.PublisherClient()
 
 
 PROJECT_ID = "serengeti-development"
-AA_FI_READY_TOPIC = "aa-fi-ready"
+AA_FI_READY_TOPIC = "pub-aa-fi-ready"
 
 MONGO_URL = f"mongodb+srv://{MONGODB_USER}:{MONGODB_PWD}@{MONGODB_HOST}/{MONGODB_NAME}?retryWrites=true&w=majority"
 
