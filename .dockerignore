@@ -6,7 +6,6 @@
 *.pyd
 __pycache__
 .pytest_cache
-requirements.txt
 Dockerfile
 README.md
 venv/
