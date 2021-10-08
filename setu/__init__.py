@@ -1,9 +1,11 @@
-import jwt
-import requests
-import pendulum
-import uuid
 import json
+import uuid
+
+import jwt
+import pendulum
+import requests
 from flask import Flask, jsonify, request
+from google.cloud import pubsub_v1
 from pymongo import MongoClient
 
 from .config import (
@@ -11,10 +13,16 @@ from .config import (
     MONGODB_NAME,
     MONGODB_PWD,
     MONGODB_USER,
-    SETU_SANDBOX_BASE_URL,
-    SETU_CLIENT_API_KEY,
     RAHASYA_BASE_URL,
+    SETU_CLIENT_API_KEY,
+    SETU_SANDBOX_BASE_URL,
 )
+
+publisher = pubsub_v1.PublisherClient()
+
+
+PROJECT_ID = "serengeti-development"
+AA_FI_READY_TOPIC = "aa-fi-ready"
 
 MONGO_URL = f"mongodb+srv://{MONGODB_USER}:{MONGODB_PWD}@{MONGODB_HOST}/{MONGODB_NAME}?retryWrites=true&w=majority"
 
@@ -254,7 +262,7 @@ def request_fi_data():
     consent_item = workflow_item_doc["consentItem"]
     consent_flow = workflow_item_doc["consentFlow"]
     data_flow = workflow_item_doc["dataFlow"]
-    
+
     consent_id = consent_flow["consentId"]
     signed_consent = consent_flow["signedConsent"]
     key_material = data_flow["keyMaterial"]
@@ -284,4 +292,44 @@ def request_fi_data():
         {"$set": update_fields},
     )
     print(f"updated collection aaSetuWorkflows matched count: {result.matched_count}")
+    return jsonify({"workflow_id": workflow_id})
+
+
+@app.route("/FI/Notification", methods=["POST"])
+def fi_notification():
+    """
+    once the data is prepared by the FIP, it notifies AA which then
+    notifies us via this POST webhook
+    """
+    data = request.get_json(force=True)
+    print("--- received data ---")
+    print(data)
+    print("---------------------")
+
+    fi_status_notification = data["FIStatusNotification"]
+    session_status = fi_status_notification["sessionStatus"]
+    print(f"got FI Notification with session status {session_status}")
+
+    session_id = fi_status_notification["sessionId"]
+    projection = {"_id": False, "userRef": True, "workflowId": True}
+    workflow_item_doc = mongodb.get_collection("aaSetuWorkflows").find_one(
+        {"dataFlow.sessionId": session_id}, projection=projection
+    )
+
+    if not workflow_item_doc:
+        print("oops this should not happen!")
+        raise ValueError("consent handle or workflow item does not exists.")
+
+    workflow_id = workflow_item_doc["workflowId"]
+    userRef = -workflow_item_doc["userRef"]
+
+    print(f"FI notification for workflowId {workflow_id} and userRef {userRef}")
+    #
+    # attach our internal workflowId identifier which contains the stored states
+    data["workflowId"] = workflow_id
+    topic_path = publisher.topic_path(PROJECT_ID, AA_FI_READY_TOPIC)
+    data_json_string = json.dumps(data).encode("utf-8")
+    future = publisher.publish(topic_path, data_json_string)
+    print(future.result())
+    print(f"Published message to topic {topic_path}.")
     return jsonify({"workflow_id": workflow_id})
