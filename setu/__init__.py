@@ -321,7 +321,7 @@ def fi_notification():
         raise ValueError("consent handle or workflow item does not exists.")
 
     workflow_id = workflow_item_doc["workflowId"]
-    userRef = -workflow_item_doc["userRef"]
+    userRef = workflow_item_doc["userRef"]
 
     print(f"FI notification for workflowId {workflow_id} and userRef {userRef}")
     #
