@@ -1,2 +1,2 @@
-# setu-peacemaker
-Setu Peacemaker - Google Cloud Run service listening to events at AA
+# setu-aa-server
+Setu AA Server - Google Cloud Run service listening to events at AA
